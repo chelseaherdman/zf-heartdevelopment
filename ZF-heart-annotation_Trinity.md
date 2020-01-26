@@ -31,13 +31,13 @@ https://github.com/trinityrnaseq/trinityrnaseq/wiki/Installing-Trinity
 
 ## Ran Trinity on our samples
 
-### Prepped sample info table for Trinity
+### Prepped sample info table for Trinity in R
 
 Trinity will take a tab-delimited text file with four columns:
-*condition
-*sample/replicate id
-*read 1 file name
-*read 2 file name
+* condition
+* sample/replicate id
+* read 1 file name
+* read 2 file name
 
 ```
 library(data.table)
