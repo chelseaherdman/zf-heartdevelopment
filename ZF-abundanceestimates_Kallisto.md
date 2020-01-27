@@ -7,13 +7,12 @@ Add text here.
 
 Download fasta files for coding and non-coding annotated sequences from [ensembl](http://www.ensembl.org/info/data/ftp/index.html).
 
-```
-#! /bin/bash
+Run the index function as follows:
 
+```
 kallisto index \
     -i GRCz11.r99.cdna.all.ncrna.kallisto_index \
     Danio_rerio.GRCz11.cdna.all.fa.gz Danio_rerio.GRCz11.ncrna.fa.gz
-    
 ```
 
 ### Run kallisto in R using the package paralell
@@ -25,7 +24,8 @@ using GRCz11 and ensembl annotation release 99
 library(data.table)
 library(parallel)
 
-# Load sample info sheet
+# Load sample info sheet and collapse fastq paired filenames by sample id (gnomex_id in our case).
+
 sample_info = fread("../sample_info_14893R_20180221.txt")
 
 sample_info = sample_info[, list(fastq_pairs=paste(paste(file.path("../fastq",
@@ -39,7 +39,7 @@ sample_info[, logfile_name:=paste("kallisto_quant", gnomex_id, "log.txt", sep="_
 command_vec = paste(
     "mkdir -p", sample_info$gnomex_id, ";",
     "kallisto quant",
-    "-i /data3/cherdman/genome_z11/GRCz11.r99.cdna.all.ncrna.kallisto_index",
+    "-i /PATH/TO/INDEX/GRCz11.r99.cdna.all.ncrna.kallisto_index",
     "-o", sample_info$gnomex_id,
     "-b 100",
     "-t 6",
@@ -74,6 +74,8 @@ for (j in seq_along(file_name_vec)) {
 
 ktab = rbindlist(results_list)
 setnames(ktab, old="target_id", new="ensembl_transcript_id")
+
+# Kallisto transcript id output has a ".1" that needs to be removed.
 ktab[, ensembl_transcript_id:=sapply(
           strsplit(ensembl_transcript_id, 
           split=".", fixed=TRUE), 
