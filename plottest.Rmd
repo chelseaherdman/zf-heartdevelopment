@@ -2,7 +2,7 @@
 title: "DESeq2 on RiboZero data"
 author: "Chelsea Herdman"
 date: "27/01/2020"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
