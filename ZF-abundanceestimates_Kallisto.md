@@ -49,8 +49,6 @@ command_vec = paste(
 cl = makeCluster(4)
 
 ```
-
-
 ### Made long-form datatable of kallisto results in R
 
 ```
