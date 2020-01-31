@@ -1,0 +1,106 @@
+---
+title: "Tx Import for DESeq2"
+author: "Chelsea Herdman"
+date: "30/01/2020"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In order to perform differential expression analysis using DESeq2 on the 
+estimated transcript abundances produced by kallisto, we used the tximport
+package in R.
+
+We followed the vignette provided by Michael I. Love, Charlotte Soneson and 
+Mark D. Robinson found [here](http://bioconductor.org/packages/release/bioc/vignettes/tximport/inst/doc/tximport.html#salmon_with_inferential_replicates)
+
+
+## Prepare transcript to gene dataframe for gene-level summarization
+
+Load required libraries.
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(tximport)
+library(data.table)
+library(ensembldb)
+library(RMariaDB)
+library(DESeq2)
+```
+
+Fetch gene annotations from Ensembl and create one to one transcript id/gene id data frame.
+
+```{r tx2gene}
+txdb = makeTxDbFromEnsembl(organism="Danio rerio",
+                    release=99,
+                    circ_seqs=DEFAULT_CIRC_SEQS,
+                    server="ensembldb.ensembl.org",
+                    username="anonymous", password=NULL, port=0L,
+                    tx_attrib=NULL)
+
+k <- keys(txdb, keytype = "TXNAME")
+tx2gene <- select(txdb, k, "GENEID", "TXNAME")
+head(tx2gene)
+
+length(unique(tx2gene$TXNAME))
+
+length(unique(tx2gene$GENEID))
+
+```
+
+## Prepare named vector of files
+
+Use kallisto abundance.h5 files. These are listed in alphabetical order in the 
+kallisto_out directory so ensure naming associates accurately and that names 
+associate with sample info table that will be used for DESeq2.
+
+```{r makefilesvec}
+
+files = list.files(path="../../kallisto_out/",
+                   pattern="abundance.h5",
+                   recursive = TRUE,
+                   full.names = TRUE)
+
+all(file.exists(files))
+#[1] TRUE
+
+names(files) = paste0("14893X", c(1, 10:19, 2, 20:22, 3:9))
+
+files
+```
+
+## Run tximport for gene level estimation
+```{r tximport}
+txi.kallisto = tximport(files, type= "kallisto", tx2gene = tx2gene, ignoreTxVersion = TRUE)
+head(txi.kallisto$counts)
+```
+
+***
+
+## Create DESeq DataSet
+
+As described in the vignette, this function creates an offset in order to perform differential expression analysis.
+Will also run with countsFromAbundance="lengthScaledTPM" and compare
+results for counts histograms etc.
+```{r dds}
+sampleTable = fread("../../ribozero_sample_info.txt")
+
+cData = data.frame(time_point=factor(sampleTable$time_point,
+                                     levels=c("24hpf", "36hpf", "48hpf", "60hpf",
+                                              "72hpf")),
+                   replicate_id=factor(sampleTable$rep_id,
+                                       levels=paste("rep_", 1:5, sep="")))
+                                              
+rownames(cData) = sampleTable$gnomex_id
+
+dds <- DESeqDataSetFromTximport(txi.kallisto, cData, ~time_point)
+```
+
+***
+## References
+* Bray N, Pimentel H, Melsted P, Pachter L (2016), _Near-optimal probabilistic RNA-seq quantification_, Nature Biotechnology, 34, 525–527. doi:10.1038/nbt.3519  
+* Soneson C, Love MI, Robinson MD (2015), _Differential analyses for RNA-seq: transcript-level estimates improve gene-level inferences_, F1000Research, 4, 1521. doi:10.12688/f1000research.7563.2  
+* Love MI, Huber W, Anders S (2014), _Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2_, Genome Biology, 15, 550. doi:10.1186/s13059-014-0550-8  
+
+***
