@@ -1,6 +1,8 @@
 #' ---
-#' Title: Differential Expression Analysis (DESeq2)
-#' Author: Chelsea Herdman
+#' title: Differential Expression Analysis (DESeq2)
+#' author: Chelsea Herdman
+#' date: 05/Feb/2020
+#' output: github_document
 #' ---
 #' 
 #' In order to perform differential expression analysis using DESeq2 on the 
@@ -144,3 +146,49 @@ pdf(here("DESeq2", "DiagnosticFigs", "20200205_screeplot_pca_normcounts.pdf"),
     width=6, height=4)
 screeplot(pcres_norm)
 dev.off()
+
+
+# Perform rlog transformation, 
+# taking into account different variability of samples
+rld <- rlog(dds_rplust, blind=FALSE)
+
+# Extract computed rlog values into a matrix
+rmat = assay(rld)
+rtab = data.table(rmat)
+rtab$ensembl_gene_id = rownames(rmat)
+
+
+pcres_rlog = prcomp(rmat)
+
+pctab_rlog = data.table(pcres_rlog$rotation[, 1:8])
+pctab_rlog[, sample_id:=rownames(pcres_rlog$rotation)]
+pctab_rlog[, time_point:=sample_info$time_point]
+pctab_rlog[, replicate_id:=sample_info$rep_id]
+
+
+pdf(here("DESeq2", "DiagnosticFigs", "20200205_pca_plots_rlogcounts.pdf"), 
+    width=10, height=10)
+rep_colors = c(rep_1="#fc8d62",
+               rep_2="#8da0cb",
+               rep_3="#e78ac3",
+               rep_4="#a6d854",
+               rep_5="#ffd92f")
+
+pairs(pcres_rlog$rotation[, 1:8], cex=3, pch=20, col=rep_colors[pctab_rlog$replicate_id])
+legend(x="bottomright", legend=names(rep_colors), fill=rep_colors)
+
+time_colors = c("24hpf"="#fb8072",
+                "36hpf"="#80b1d3",
+                "48hpf"="#fdb462",
+                "60hpf"="#ffd92f",
+                "72hpf"="#b3de69")
+
+pairs(pcres_rlog$rotation[, 1:8], cex=3, pch=20, col=time_colors[pctab_rlog$time_point])
+legend(x="bottomright", legend=names(time_colors), fill=time_colors)
+dev.off()
+
+pdf(here("DESeq2", "DiagnosticFigs", "20200205_screeplot_pca_rlogcounts.pdf"), 
+    width=6, height=4)
+screeplot(pcres_rlog)
+dev.off()
+
