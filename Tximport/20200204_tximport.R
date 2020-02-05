@@ -17,6 +17,7 @@ library(data.table)
 library(ensembldb)
 library(RMariaDB)
 library(DESeq2)
+library(here)
 
 #' Fetch gene annotations from Ensembl and create one to one 
 #' transcript id/gene id data frame.
@@ -42,7 +43,7 @@ length(unique(tx2gene$GENEID))
 #' kallisto_out directory so ensure naming associates accurately and that names 
 #' associate with sample info table that will be used for DESeq2.
 
-files = list.files(path="kallisto_quant_combined_z11",
+files = list.files(path=here("kallisto_quant_combined_z11"),
                    pattern="abundance.tsv",
                    recursive = TRUE,
                    full.names = TRUE)
@@ -77,16 +78,5 @@ counts_tab$ensembl_gene_id = rownames(txi.kallisto.biascorr$counts)
 setcolorder(counts_tab, c("ensembl_gene_id", paste("14893X", 1:22, sep="")))
 
 #' Save the counts table in order to use as input for DESeq2 (*see DESeq2 folder*)
-fwrite(counts_tab, file="20200204_ribozero_counts_fromtximport_biascorrected.txt", sep="\t")
-
-
-#' ***
-#' ### References
-#' * Bray N, Pimentel H, Melsted P, Pachter L (2016), _Near-optimal probabilistic RNA-seq quantification_, Nature Biotechnology, 34, 525–527. doi:10.1038/nbt.3519  
-#' * Soneson C, Love MI, Robinson MD (2015), _Differential analyses for RNA-seq: transcript-level estimates improve gene-level inferences_, F1000Research, 4, 1521. doi:10.12688/f1000research.7563.2  
-#' * Love MI, Huber W, Anders S (2014), _Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2_, Genome Biology, 15, 550. doi:10.1186/s13059-014-0550-8
-#' ***
-#' 
-#' ### Session Info
-sessionInfo()
+fwrite(counts_tab, file=here("Tximport", "20200204_ribozero_counts_fromtximport_biascorrected.txt"), sep="\t")
 
