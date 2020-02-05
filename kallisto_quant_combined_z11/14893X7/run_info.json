@@ -1,0 +1,13 @@
+{
+	"n_targets": 65890,
+	"n_bootstraps": 100,
+	"n_processed": 131470834,
+	"n_pseudoaligned": 70299154,
+	"n_unique": 40581949,
+	"p_pseudoaligned": 53.5,
+	"p_unique": 30.9,
+	"kallisto_version": "0.46.1",
+	"index_version": 10,
+	"start_time": "Fri Jan 24 17:35:50 2020",
+	"call": "kallisto quant -i /data3/cherdman/genome_z11/GRCz11.r99.cdna.all.ncrna.kallisto_index -o 14893X7 -b 100 -t 6 ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_1_1.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_1_2.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_2_1.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_2_2.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_3_1.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_3_2.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_4_1.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_4_2.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_5_1.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_5_2.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_6_1.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_6_2.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_7_1.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_7_2.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_8_1.txt.gz ../fastq/14893X7_180215_D00294_0374_ACC6RBANXX_8_2.txt.gz"
+}

@@ -1,0 +1,92 @@
+#' ## Import transcript abundances from kallisto using tximport
+#' 
+#' In order to perform differential expression analysis using DESeq2 on the 
+#' estimated transcript abundances produced by kallisto, we used the tximport
+#' package in R.
+#'
+#' We followed the vignette provided by Michael I. Love, Charlotte Soneson and 
+#' Mark D. Robinson found [here](http://bioconductor.org/packages/release/bioc/vignettes/tximport/inst/doc/tximport.html#salmon_with_inferential_replicates)
+#' 
+#' #### Prepare transcript to gene dataframe for gene-level summarization
+#' 
+#' Load required libraries.
+#' 
+#+ libraries, message=FALSE, error=FALSE, warning=FALSE
+library(tximport)
+library(data.table)
+library(ensembldb)
+library(RMariaDB)
+library(DESeq2)
+
+#' Fetch gene annotations from Ensembl and create one to one 
+#' transcript id/gene id data frame.
+
+txdb = makeTxDbFromEnsembl(organism="Danio rerio",
+                           release=99,
+                           circ_seqs=DEFAULT_CIRC_SEQS,
+                           server="ensembldb.ensembl.org",
+                           username="anonymous", password=NULL, port=0L,
+                           tx_attrib=NULL)
+
+k <- keys(txdb, keytype = "TXNAME")
+tx2gene <- select(txdb, k, "GENEID", "TXNAME")
+head(tx2gene)
+
+length(unique(tx2gene$TXNAME))
+
+length(unique(tx2gene$GENEID))
+
+#' #### Prepare named vector of files
+
+#' Use kallisto abundance.h5 files. These are listed in alphabetical order in the 
+#' kallisto_out directory so ensure naming associates accurately and that names 
+#' associate with sample info table that will be used for DESeq2.
+
+files = list.files(path="kallisto_quant_combined_z11",
+                   pattern="abundance.tsv",
+                   recursive = TRUE,
+                   full.names = TRUE)
+all(file.exists(files))
+names(files) = paste("14893X", c(1, 10:19, 2, 20:22, 3:9), sep="")
+files
+#' > bug here to correct in compile report
+
+#' #### Run tximport for gene level estimation
+
+#' DESeq2 will be run both using the *original counts and offset* method and the 
+#' *bias corrected counts without an offset* method in order to compare the two 
+#' possibilities of correcting for transcript length. 
+
+#' ##### Original counts and offset method
+txi.kallisto.offset = tximport(files, type= "kallisto", tx2gene = tx2gene, 
+                               ignoreTxVersion = TRUE)
+txi.kallisto.offset$counts[1:6, 1:6]
+txi.kallisto.offset$abundance[1:6, 1:6]
+#' > Need Brad to show me how to fix the order of columns before using this 
+#' > object for the DESeqDataSetFromTximport function as follows:
+#' > dds <- DESeqDataSetFromTximport(txi.kallisto.offset, sample_info, ~ time_point)
+
+#' ##### Bias corrected counts without an offset
+txi.kallisto.biascorr = tximport(files, type= "kallisto", tx2gene = tx2gene, 
+                                 ignoreTxVersion = TRUE, 
+                                 countsFromAbundance="lengthScaledTPM")
+txi.kallisto.biascorr$counts[1:6, 1:6]
+
+counts_tab = as.data.table(txi.kallisto.biascorr$counts)
+counts_tab$ensembl_gene_id = rownames(txi.kallisto.biascorr$counts)
+setcolorder(counts_tab, c("ensembl_gene_id", paste("14893X", 1:22, sep="")))
+
+#' Save the counts table in order to use as input for DESeq2 (*see DESeq2 folder*)
+fwrite(counts_tab, file="20200204_ribozero_counts_fromtximport_biascorrected.txt", sep="\t")
+
+
+#' ***
+#' ### References
+#' * Bray N, Pimentel H, Melsted P, Pachter L (2016), _Near-optimal probabilistic RNA-seq quantification_, Nature Biotechnology, 34, 525–527. doi:10.1038/nbt.3519  
+#' * Soneson C, Love MI, Robinson MD (2015), _Differential analyses for RNA-seq: transcript-level estimates improve gene-level inferences_, F1000Research, 4, 1521. doi:10.12688/f1000research.7563.2  
+#' * Love MI, Huber W, Anders S (2014), _Moderated estimation of fold change and dispersion for RNA-seq data with DESeq2_, Genome Biology, 15, 550. doi:10.1186/s13059-014-0550-8
+#' ***
+#' 
+#' ### Session Info
+sessionInfo()
+
