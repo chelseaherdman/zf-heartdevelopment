@@ -78,5 +78,5 @@ counts_tab$ensembl_gene_id = rownames(txi.kallisto.biascorr$counts)
 setcolorder(counts_tab, c("ensembl_gene_id", paste("14893X", 1:22, sep="")))
 
 #' Save the counts table in order to use as input for DESeq2 (*see DESeq2 folder*)
-fwrite(counts_tab, file=here("Tximport", "20200204_ribozero_counts_fromtximport_biascorrected.txt"), sep="\t")
+fwrite(counts_tab, file=here("Tximport", "20200204_ribozero_counts_fromtximport_biascorrected.txt.gz"), sep="\t")
 
