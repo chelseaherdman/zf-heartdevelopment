@@ -38,34 +38,42 @@ length(unique(tx2gene$TXNAME))
 length(unique(tx2gene$GENEID))
 
 #' #### Prepare named vector of files
-
-#' Use kallisto abundance.h5 files. These are listed in alphabetical order in the 
+#' Use kallisto abundance.tsv files. These are listed in alphabetical order in the 
 #' kallisto_out directory so ensure naming associates accurately and that names 
 #' associate with sample info table that will be used for DESeq2.
 
-files = list.files(path=here("kallisto_quant_combined_z11"),
+file_path_vec = list.files(path=here("kallisto_quant_combined_z11"),
                    pattern="abundance.tsv",
                    recursive = TRUE,
                    full.names = TRUE)
-all(file.exists(files))
-names(files) = paste("14893X", c(1, 10:19, 2, 20:22, 3:9), sep="")
+all(file.exists(file_path_vec))
+
+file_tab = data.table(file_path=file_path_vec,
+                      gnomex_id=basename(dirname(file_path_vec)))
+file_tab[, sort_order:=as.integer(gsub("^\\d{4,5}X", "", gnomex_id))]
+setorder(file_tab, sort_order)
+
+files = file_tab$file_path
+names(files) = file_tab$gnomex_id
 files
 #' > bug here to correct in compile report
-
+#'
 #' #### Run tximport for gene level estimation
-
+#'
 #' DESeq2 will be run both using the *original counts and offset* method and the 
 #' *bias corrected counts without an offset* method in order to compare the two 
 #' possibilities of correcting for transcript length. 
-
+#'
 #' ##### Original counts and offset method
+
 txi.kallisto.offset = tximport(files, type= "kallisto", tx2gene = tx2gene, 
                                ignoreTxVersion = TRUE)
 txi.kallisto.offset$counts[1:6, 1:6]
 txi.kallisto.offset$abundance[1:6, 1:6]
+
 #' > Need Brad to show me how to fix the order of columns before using this 
 #' > object for the DESeqDataSetFromTximport function as follows:
-#' > dds <- DESeqDataSetFromTximport(txi.kallisto.offset, sample_info, ~ time_point)
+# dds <- DESeqDataSetFromTximport(txi.kallisto.offset, sample_info, ~ time_point)
 
 #' ##### Bias corrected counts without an offset
 txi.kallisto.biascorr = tximport(files, type= "kallisto", tx2gene = tx2gene, 
@@ -78,5 +86,5 @@ counts_tab$ensembl_gene_id = rownames(txi.kallisto.biascorr$counts)
 setcolorder(counts_tab, c("ensembl_gene_id", paste("14893X", 1:22, sep="")))
 
 #' Save the counts table in order to use as input for DESeq2 (*see DESeq2 folder*)
-fwrite(counts_tab, file=here("Tximport", "20200204_ribozero_counts_fromtximport_biascorrected.txt"), sep="\t")
+fwrite(counts_tab, file=here("Tximport", "20200204_ribozero_counts_fromtximport_biascorrected.txt.gz"), sep="\t")
 
