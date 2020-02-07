@@ -1,4 +1,4 @@
-Differential expression analysis (DESeq2) - replicate plus time point
+Differential expression analysis (DESeq2) - time point model
 ================
 Chelsea Herdman
 February 5th, 2020
@@ -52,14 +52,13 @@ storage.mode(counts) = "integer" # DESeq requires us to change numeric values to
 
 ### Diagnostics
 
-***Read sum
-distributions***
+***Read sum distributions***
 
 ``` r
 hist(log10(rowSums(counts) + 1), breaks=100, col="grey80")
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/read_sum-1.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/read_sum-1.png)<!-- -->
 
 ``` r
 summary(rowSums(counts))
@@ -112,14 +111,14 @@ pairs(pcres$rotation[, 1:8], cex=3, pch=20, col=rep_colors[pctab$replicate_id])
 legend(x="bottomright", legend=names(rep_colors), fill=rep_colors)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_rawcounts-1.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_rawcounts-1.png)<!-- -->
 
 ``` r
 pairs(pcres$rotation[, 1:8], cex=3, pch=20, col=time_colors[pctab$time_point])
 legend(x="bottomright", legend=names(time_colors), fill=time_colors)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_rawcounts-2.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_rawcounts-2.png)<!-- -->
 
 ``` r
 #dev.off()
@@ -127,7 +126,7 @@ legend(x="bottomright", legend=names(time_colors), fill=time_colors)
 screeplot(pcres)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_rawcounts-3.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_rawcounts-3.png)<!-- -->
 
 Conclusions: 24hpf and 36 hpf samples cluster well by time\_point
 (e.g. PC2 vs PC3). Samples generally do not cluster by replicate\_id.
@@ -146,8 +145,7 @@ differential expression results.
 ``` r
 dds = DESeqDataSetFromMatrix(countData=counts,
                              colData=cData,
-                             design=~ replicate_id + 
-                                      time_point)
+                             design=~ time_point)
 # May prefilter.
 #keep <- rowSums(counts(dds)) >= 10
 #dds <- dds[keep,]
@@ -163,19 +161,19 @@ dds = estimateDispersions(dds)
     ## final dispersion estimates
 
 ``` r
-dds = nbinomLRT(dds, reduced=~ replicate_id)
+dds = nbinomLRT(dds, reduced=~ 1)
 res = results(dds, cooksCutoff=TRUE)
 
 plotMA(res, ylim = c(-3, 3))
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/dds_diag-1.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/dds_diag-1.png)<!-- -->
 
 ``` r
 plotDispEsts(dds)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/dds_diag-2.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/dds_diag-2.png)<!-- -->
 
 ``` r
 res = as.data.frame(res)
@@ -191,19 +189,19 @@ length(unique(res$ensembl_gene_id))
 sum(res$padj < 0.05, na.rm=TRUE )
 ```
 
-    ## [1] 10677
+    ## [1] 8437
 
 ``` r
 sum(is.na(res$pvalue))
 ```
 
-    ## [1] 718
+    ## [1] 947
 
 ``` r
 hist(res$pvalue, breaks=20, col="grey" )
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/dds_diag-3.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/dds_diag-3.png)<!-- -->
 
 ``` r
 res05 = results(dds, alpha=0.05)
@@ -213,11 +211,11 @@ summary(res05)
     ## 
     ## out of 36509 with nonzero total read count
     ## adjusted p-value < 0.05
-    ## LFC > 0 (up)       : 5920, 16%
-    ## LFC < 0 (down)     : 4819, 13%
-    ## outliers [1]       : 0, 0%
-    ## low counts [2]     : 4950, 14%
-    ## (mean count < 7)
+    ## LFC > 0 (up)       : 4502, 12%
+    ## LFC < 0 (down)     : 3935, 11%
+    ## outliers [1]       : 229, 0.63%
+    ## low counts [2]     : 4120, 11%
+    ## (mean count < 5)
     ## [1] see 'cooksCutoff' argument of ?results
     ## [2] see 'independentFiltering' argument of ?results
 
@@ -225,11 +223,9 @@ summary(res05)
 resultsNames(dds)
 ```
 
-    ## [1] "Intercept"                   "replicate_id_rep_2_vs_rep_1"
-    ## [3] "replicate_id_rep_3_vs_rep_1" "replicate_id_rep_4_vs_rep_1"
-    ## [5] "replicate_id_rep_5_vs_rep_1" "time_point_36hpf_vs_24hpf"  
-    ## [7] "time_point_48hpf_vs_24hpf"   "time_point_60hpf_vs_24hpf"  
-    ## [9] "time_point_72hpf_vs_24hpf"
+    ## [1] "Intercept"                 "time_point_36hpf_vs_24hpf"
+    ## [3] "time_point_48hpf_vs_24hpf" "time_point_60hpf_vs_24hpf"
+    ## [5] "time_point_72hpf_vs_24hpf"
 
 ``` r
 resLFC = lfcShrink(dds, coef="time_point_72hpf_vs_24hpf", type="apeglm")
@@ -244,7 +240,7 @@ resLFC = lfcShrink(dds, coef="time_point_72hpf_vs_24hpf", type="apeglm")
 plotMA(resLFC, ylim=c(-2,2))
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/dds_diag-4.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/dds_diag-4.png)<!-- -->
 
 ***Compute Normalized Counts***
 
@@ -300,14 +296,14 @@ pairs(pcres_norm$rotation[, 1:8], cex=3, pch=20, col=rep_colors[pctab_norm$repli
 legend(x="bottomright", legend=names(rep_colors), fill=rep_colors)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_normcounts-1.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_normcounts-1.png)<!-- -->
 
 ``` r
 pairs(pcres_norm$rotation[, 1:8], cex=3, pch=20, col=time_colors[pctab_norm$time_point])
 legend(x="bottomright", legend=names(time_colors), fill=time_colors)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_normcounts-2.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_normcounts-2.png)<!-- -->
 
 ``` r
 #dev.off()
@@ -315,7 +311,7 @@ legend(x="bottomright", legend=names(time_colors), fill=time_colors)
 screeplot(pcres_norm)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_normcounts-3.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_normcounts-3.png)<!-- -->
 
 ***rlog transformation***
 
@@ -347,14 +343,14 @@ pairs(pcres_rlog$rotation[, 1:8], cex=3, pch=20, col=rep_colors[pctab_rlog$repli
 legend(x="bottomright", legend=names(rep_colors), fill=rep_colors)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_rlogcounts-1.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_rlogcounts-1.png)<!-- -->
 
 ``` r
 pairs(pcres_rlog$rotation[, 1:8], cex=3, pch=20, col=time_colors[pctab_rlog$time_point])
 legend(x="bottomright", legend=names(time_colors), fill=time_colors)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_rlogcounts-2.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_rlogcounts-2.png)<!-- -->
 
 ``` r
 #dev.off()
@@ -362,19 +358,19 @@ legend(x="bottomright", legend=names(time_colors), fill=time_colors)
 screeplot(pcres_rlog)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_rlogcounts-3.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_rlogcounts-3.png)<!-- -->
 
 ``` r
 plotPCA(rld, intgroup=c("time_point"))
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_rlogcounts-4.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_rlogcounts-4.png)<!-- -->
 
 ``` r
 plotPCA(rld, intgroup=c("replicate_id"))
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/pca_plot_rlogcounts-5.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/pca_plot_rlogcounts-5.png)<!-- -->
 
 ``` r
 #plotPCA(rld, intgroup=c("qc_conc"))
@@ -393,7 +389,7 @@ pheatmap(sampleDistMatrix,
          col=colors)
 ```
 
-![](20200204_deseq2_replicate_plus_timepoint_files/figure-gfm/sampletosampleheatmap-1.png)<!-- -->
+![](20200207_deseq2_timepoint_files/figure-gfm/sampletosampleheatmap-1.png)<!-- -->
 
 -----
 

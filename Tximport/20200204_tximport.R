@@ -1,5 +1,10 @@
-#' ## Import transcript abundances from kallisto using tximport
-#' 
+#' ---
+#' title: "Import transcript abundances from kallisto using tximport"
+#' author: "Chelsea Herdman"
+#' date: "February 5th, 2020"
+#' output: github_document
+#' ---
+#'
 #' In order to perform differential expression analysis using DESeq2 on the 
 #' estimated transcript abundances produced by kallisto, we used the tximport
 #' package in R.
@@ -16,7 +21,6 @@ library(tximport)
 library(data.table)
 library(ensembldb)
 library(RMariaDB)
-library(DESeq2)
 library(here)
 
 #' Fetch gene annotations from Ensembl and create one to one 
@@ -50,13 +54,12 @@ all(file.exists(file_path_vec))
 
 file_tab = data.table(file_path=file_path_vec,
                       gnomex_id=basename(dirname(file_path_vec)))
-file_tab[, sort_order:=as.integer(gsub("^\\d{4,5}X", "", gnomex_id))]
+file_tab[, sort_order:=as.integer(gsub("^14893X", "", gnomex_id))]
 setorder(file_tab, sort_order)
 
 files = file_tab$file_path
 names(files) = file_tab$gnomex_id
-files
-#' > bug here to correct in compile report
+
 #'
 #' #### Run tximport for gene level estimation
 #'
@@ -65,15 +68,13 @@ files
 #' possibilities of correcting for transcript length. 
 #'
 #' ##### Original counts and offset method
-
+#' This txi object can be used directly with downstream DESeq2 analyses using the
+#' DESeqDataSetFromTximport function.
+#' 
 txi.kallisto.offset = tximport(files, type= "kallisto", tx2gene = tx2gene, 
                                ignoreTxVersion = TRUE)
 txi.kallisto.offset$counts[1:6, 1:6]
 txi.kallisto.offset$abundance[1:6, 1:6]
-
-#' > Need Brad to show me how to fix the order of columns before using this 
-#' > object for the DESeqDataSetFromTximport function as follows:
-# dds <- DESeqDataSetFromTximport(txi.kallisto.offset, sample_info, ~ time_point)
 
 #' ##### Bias corrected counts without an offset
 txi.kallisto.biascorr = tximport(files, type= "kallisto", tx2gene = tx2gene, 
