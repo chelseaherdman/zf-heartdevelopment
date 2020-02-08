@@ -1,23 +1,23 @@
-gnomex_id	rep_id	rep_time	time_point
-14893X1	rep_1	1_24hpf	24hpf
-14893X2	rep_1	1_36hpf	36hpf
-14893X3	rep_1	1_48hpf	48hpf
-14893X4	rep_1	1_60hpf	60hpf
-14893X5	rep_1	1_72hpf	72hpf
-14893X6	rep_2	2_24hpf	24hpf
-14893X7	rep_2	2_36hpf	36hpf
-14893X8	rep_2	2_48hpf	48hpf
-14893X9	rep_2	2_60hpf	60hpf
-14893X10	rep_2	2_72hpf	72hpf
-14893X11	rep_3	3_24hpf	24hpf
-14893X12	rep_3	3_36hpf	36hpf
-14893X13	rep_3	3_48hpf	48hpf
-14893X14	rep_3	3_60hpf	60hpf
-14893X15	rep_3	3_72hpf	72hpf
-14893X16	rep_4	4_24hpf	24hpf
-14893X17	rep_4	4_36hpf	36hpf
-14893X18	rep_4	4_48hpf	48hpf
-14893X19	rep_4	4_60hpf	60hpf
-14893X20	rep_4	4_72hpf	72hpf
-14893X21	rep_5	5_60hpf	60hpf
-14893X22	rep_5	5_72hpf	72hpf
+gnomex_id	replicate_id	rep_time	time_point	qc_conc	qc_rin
+14893X1	rep_1	1_24hpf	24hpf	15	9.6
+14893X2	rep_1	1_36hpf	36hpf	16	8.8
+14893X3	rep_1	1_48hpf	48hpf	12	9.6
+14893X4	rep_1	1_60hpf	60hpf	11	7.5
+14893X5	rep_1	1_72hpf	72hpf	21	8.9
+14893X6	rep_2	2_24hpf	24hpf	10	9.8
+14893X7	rep_2	2_36hpf	36hpf	18	8.2
+14893X8	rep_2	2_48hpf	48hpf	38	5.9
+14893X9	rep_2	2_60hpf	60hpf	20	9.4
+14893X10	rep_2	2_72hpf	72hpf	49	5.8
+14893X11	rep_3	3_24hpf	24hpf	4.2	7.8
+14893X12	rep_3	3_36hpf	36hpf	10	9.3
+14893X13	rep_3	3_48hpf	48hpf	13	7.6
+14893X14	rep_3	3_60hpf	60hpf	5.1	7.0
+14893X15	rep_3	3_72hpf	72hpf	7.8	8.1
+14893X16	rep_4	4_24hpf	24hpf	17	7.0
+14893X17	rep_4	4_36hpf	36hpf	11	9.1
+14893X18	rep_4	4_48hpf	48hpf	12	10.0
+14893X19	rep_4	4_60hpf	60hpf	5.9	8.2
+14893X20	rep_4	4_72hpf	72hpf	11	8.8
+14893X21	rep_5	5_60hpf	60hpf	NA	NA
+14893X22	rep_5	5_72hpf	72hpf	NA	NA

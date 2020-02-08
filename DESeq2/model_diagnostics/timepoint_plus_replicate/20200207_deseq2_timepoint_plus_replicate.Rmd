@@ -19,6 +19,8 @@ Load required libraries.
 
 ```{r libraries, message=FALSE, error=FALSE, warning=FALSE}
 library(data.table)
+library(ggplot2)
+library(ggrepel)
 library(DESeq2)
 library(here)
 library(biomaRt)
@@ -34,7 +36,7 @@ sample_info = fread(here("DESeq2", "ribozero_sample_info.txt"))
 cData = data.frame(time_point=factor(sample_info$time_point,
                                      levels=c("24hpf", "36hpf", "48hpf",
                                               "60hpf", "72hpf")),
-                   replicate_id=factor(sample_info$rep_id,
+                   replicate_id=factor(sample_info$replicate_id,
                                        levels=paste("rep_", 1:5, sep="")))
 rownames(cData) = sample_info$gnomex_id
 ```
@@ -69,7 +71,7 @@ pcres = prcomp(counts)
 pctab = data.table(pcres$rotation[, 1:8])
 pctab[, sample_id:=rownames(pcres$rotation)]
 pctab[, time_point:=sample_info$time_point]
-pctab[, replicate_id:=sample_info$rep_id]
+pctab[, replicate_id:=sample_info$replicate_id]
 
 rep_colors = c(rep_1="#fc8d62",
                rep_2="#8da0cb",
@@ -153,27 +155,30 @@ norm_tab$ensembl_gene_id = rownames(norm_counts)
 Convert from wide-form to long-form and compute mean normalized counts.
 
 ```{r normcounts melt}
-#norm = melt(norm_tab, id.vars="ensembl_gene_id",
-#            value.name="norm_counts",
-#            variable.name="sample_id",
-#            variable.factor=FALSE)
-#norm = merge(x=norm, y=sample_info[, list(sample_id,
-#                                        time_point,
-#                                        replicate_id)],
-#             by="sample_id")
-#summary_norm = norm[,
-#              list(mean_normcounts=mean(norm_counts)),
-#                    by=list(ensembl_gene_id,
-#                            time_point)]
+norm = melt(norm_tab, id.vars="ensembl_gene_id",
+           value.name="norm_counts",
+           variable.name="gnomex_id",
+           variable.factor=FALSE)
+
+norm = merge(x=norm, y=sample_info[, list(gnomex_id,
+                                       time_point,
+                                       replicate_id,
+                                       rep_time)],
+            by="gnomex_id")
+
+summary_norm = norm[,
+             list(mean_normcounts=mean(norm_counts)),
+                   by=list(ensembl_gene_id,
+                           time_point)]
 ```
 
 Convert summary table of mean normalized counts to wide-form and merge into
 differential expression results.
 ```{r}
-#sum_norm = dcast(summary_norm, ensembl_gene_id ~ time_point, value.var="mean_normcounts")
-#setcolorder(sum_norm, c("ensembl_gene_id", "24hpf", "36hpf", "48hpf", "72hpf"))
-#res_sum = merge(res, sum_norm, by = "ensembl_gene_id")
-#setorder(res_sum, pvalue, na.last=TRUE)
+sum_norm = dcast(summary_norm, ensembl_gene_id ~ time_point, value.var="mean_normcounts")
+setcolorder(sum_norm, c("ensembl_gene_id", "24hpf", "36hpf", "48hpf", "72hpf"))
+res_sum = merge(res, sum_norm, by = "ensembl_gene_id")
+setorder(res_sum, pvalue, na.last=TRUE)
 ```
 
 Run principal components analysis on the normalized counts.
@@ -183,7 +188,7 @@ pcres_norm = prcomp(norm_counts)
 pctab_norm = data.table(pcres_norm$rotation[, 1:8])
 pctab_norm[, sample_id:=rownames(pcres_norm$rotation)]
 pctab_norm[, time_point:=sample_info$time_point]
-pctab_norm[, replicate_id:=sample_info$rep_id]
+pctab_norm[, replicate_id:=sample_info$replicate_id]
 
 #pdf(here("DESeq2", "model_diagnostics", "replicate_plus_timepoint", "figs", "20200205_pca_plots_normcounts.pdf"), #width=10, height=10)
 pairs(pcres_norm$rotation[, 1:8], cex=3, pch=20, col=rep_colors[pctab_norm$replicate_id])
@@ -215,7 +220,7 @@ pcres_rlog = prcomp(rmat)
 pctab_rlog = data.table(pcres_rlog$rotation[, 1:8])
 pctab_rlog[, sample_id:=rownames(pcres_rlog$rotation)]
 pctab_rlog[, time_point:=sample_info$time_point]
-pctab_rlog[, replicate_id:=sample_info$rep_id]
+pctab_rlog[, replicate_id:=sample_info$replicate_id]
 
 #pdf(here("DESeq2", "model_diagnostics", "replicate_plus_timepoint", "figs", "20200205_pca_plots_rlogcounts.pdf"), width=10, height=10)
 pairs(pcres_rlog$rotation[, 1:8], cex=3, pch=20, col=rep_colors[pctab_rlog$replicate_id])
@@ -248,19 +253,141 @@ pheatmap(sampleDistMatrix,
 
 ### Create complete annotated results table
 
-Fetch annotations from biomaRt using permanent link for GRCz11 - release 99.
-Merge in gene annotations to DESeq results table
+Load biomart annotations (from local file) for GRCz11 - release 99.
+Merge in gene annotations to DESeq results table.
 ```{r}
-#mart = useMart(biomart="ENSEMBL_MART_ENSEMBL",
-#               dataset="drerio_gene_ensembl",
-#               host="jan2020.archive.ensembl.org")
-#
-#annot_g = as.data.table(getBM(mart=mart,
-#                              attributes=c("ensembl_gene_id",
-#                                           "external_gene_name",
-#                                           "chromosome_name",
-#                                           "gene_biotype")))
-#
-#data_tab = merge(res_sum, annot_g, by="ensembl_gene_id")
+annot_g = fread(here("DESeq2", "gene_annot_biomart_z11_r99.txt.gz"))
+
+res_sum = merge(res_sum, annot_g, by="ensembl_gene_id")
+setorder(res_sum, pvalue, na.last=TRUE)
+
 ```
+
+
+Add gene names, annotation to norm counts long table.
+```{r}
+ntab = merge(norm, annot_g, by="ensembl_gene_id")
+```
+
+Create auxilliary data.tables needed for panel plots.
+```{r}
+res_info = res_sum[, list(ensembl_gene_id,
+          info=paste("Gene: ", external_gene_name, ", ", 
+                     ensembl_gene_id, ", ", 
+                     "chromosome ", chromosome_name, ", ",
+                     gene_biotype, "\n",
+                     "P-value = ", sprintf("%.2g", pvalue), "\n",
+                     "Adjusted p-value = ", sprintf("%.2g", padj), "\n",
+                     "Log2 fold-change (rep_5 / rep_1) = ", sprintf("%.2f", log2FoldChange), "\n",
+                     "Overall mean normalized counts = ", sprintf("%.2f", baseMean), sep=""))]
+
+by_timepoint = ntab[, list(timepoint_mean=mean(norm_counts)), 
+                        by=list(ensembl_gene_id, time_point)]
+
+by_replicate = ntab[, list(rep_mean=mean(norm_counts)),
+                    by=list(ensembl_gene_id, replicate_id)]
+
+by_gene = ntab[, list(gene_mean=mean(norm_counts)), 
+                        by=list(ensembl_gene_id)]
+
+
+```
+
+
+```{r}
+
+pdf(here("DESeq2", "model_diagnostics", "timepoint_plus_replicate", "top_DE_genes_replicate_id_model_20200207.pdf"), height=6, width=7)
+for (j in seq(100)) {
+    tmp = res_sum[j]
+    tmp_ens = tmp$ensembl_gene_id
+    tmp_counts = ntab[ensembl_gene_id %in% tmp_ens]
+
+    tmp_plot = ggplot() +
+               theme_bw() +
+               geom_hline(data=by_gene[ensembl_gene_id %in% tmp_ens], 
+                          aes(yintercept=gene_mean),
+                          size=1.6, color="grey80", alpha=0.5) +
+               geom_crossbar(data=by_timepoint[ensembl_gene_id %in% tmp_ens], 
+                       aes(x=time_point, 
+                           y=timepoint_mean, 
+                           ymin=timepoint_mean, 
+                           ymax=timepoint_mean), width=0.4, colour="grey50") + 
+               geom_hline(data=by_replicate[ensembl_gene_id %in% tmp_ens],
+                          aes(yintercept=rep_mean, colour=replicate_id),
+                          size=0.6, alpha=0.7) +
+ 
+               geom_line(data=tmp_counts,
+                         aes(x=time_point, y=norm_counts, 
+                             colour=replicate_id, group=replicate_id),
+                         size=0.6, alpha=0.7) +
+               geom_point(data=tmp_counts, 
+                          aes(x=time_point, y=norm_counts, fill=replicate_id),
+                          size=5, shape=21, color="grey30",) +
+               geom_text_repel(data=tmp_counts,
+                                aes(x=time_point, y=norm_counts, 
+                                    label=rep_time),
+                                colour="grey30", 
+                                size=2.4,
+                                min.segment.length=unit(0.4, "lines"), 
+                                point.padding = unit(0.6, 'lines'), 
+                                segment.size=0.2) +
+
+               scale_colour_manual(values=rep_colors, name="Replicate ID") +
+               scale_fill_manual(values=rep_colors, name="Replicate ID") +
+               ylab("normalized count") +
+               theme(axis.title.x=element_blank()) +
+               theme(plot.title=element_text(family="serif")) +
+               labs(title=res_info[ensembl_gene_id %in% tmp_ens, info])
+
+    print(tmp_plot)
+}
+dev.off()
+
+
+
+
+
+
+
+
+```
+
+
+Checking the loadings of PC1 from the rlog pca results (where X8 and X10 appear to be outliers.)
+```{r}
+
+rload = data.table(pcres_rlog$x)
+rload[,ensembl_gene_id:=rownames(pcres_rlog$x)]
+rload = merge(rload, annot_g, by="ensembl_gene_id")
+setorder(rload, -PC1)
+
+
+plot(rload$PC1)
+
+
+plot(rload$PC1, ylim=c(30, 35))
+abline(h=32.7, col="green")
+
+pc1_1 = rload[PC1 > 32.7, gene_biotype]
+pc1_2 = rload[PC1 < 32.7 & PC1 > 29, gene_biotype]
+
+
+table(pc1_1) / length(pc1_1)
+table(pc1_2) / length(pc1_2)
+table(rload$gene_biotype) / nrow(rload)
+table(rload$gene_biotype)
+```
+
+
+
+```{r}
+nload = data.table(pcres_norm$x)
+nload[, ensembl_gene_id:=rownames(pcres_rlog$x)]
+nload = merge(nload, annot_g, by="ensembl_gene_id")
+setorder()
+```
+
+
+
+
 
