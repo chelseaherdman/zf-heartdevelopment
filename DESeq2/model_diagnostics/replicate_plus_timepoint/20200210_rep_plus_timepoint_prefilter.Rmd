@@ -1,7 +1,7 @@
 ---
 title: "Differential expression analysis (DESeq2) - replicate plus time point"
 author: "Chelsea Herdman"
-date: "February 5th, 2020"
+date: "February 10th, 2020"
 output: github_document
 ---
 
@@ -56,14 +56,24 @@ storage.mode(counts) = "integer" # DESeq requires us to change numeric values to
 
 **_Read sum distributions_**
 ```{r read_sum, fig.width=6, fig.height=4, error=TRUE}
-hist(log10(rowSums(counts) + 1), breaks=100, col="grey80")
 summary(rowSums(counts))
 dim(counts)
 sum(rowSums(counts) == 0)
 sum(rowSums(counts) < 10)
+hist(log10(rowSums(counts) + 1), breaks=100, col="grey80")
+abline(v=log10(1e6), col="red")
+abline(v=log10(10), col="red")
+
+# Remove genes with fewer than 10 and more than 1e6 reads total (over 22 samples)
+# (removes 1665 genes)
+counts = counts[rowSums(counts) > 10, ]
+counts = counts[rowSums(counts) < 1e6, ]
+
+summary(rowSums(counts))
+dim(counts)
 ```
 
-**_PCA plots of raw counts_**
+**_PCA plots of raw filtered counts_**
 ```{r pca_plot_rawcounts, fig.height=10, fig.width=10}
 pcres = prcomp(counts)
 pctab = data.table(pcres$rotation[, 1:8])
@@ -93,9 +103,8 @@ legend(x="bottomright", legend=names(time_colors), fill=time_colors)
 screeplot(pcres)
 ```
 
-Conclusions: 24hpf and 36 hpf samples cluster well by time_point (e.g. PC2 vs PC3). 
-Samples generally do not cluster by replicate_id. PC1 accounts for all of variance, 
-and does not correlate with time_point or replicate.
+Conclusions: Samples cluster well by time_point (e.g. PC1 vs. PC2 and PC2 vs PC3). 
+Samples generally do not cluster by replicate_id. 
 
 ***
 
@@ -109,9 +118,6 @@ dds = DESeqDataSetFromMatrix(countData=counts,
                              colData=cData,
                              design=~ replicate_id + 
                                       time_point)
-# May prefilter.
-#keep <- rowSums(counts(dds)) >= 10
-#dds <- dds[keep,]
 
 dds = estimateSizeFactors(dds)
 dds = estimateDispersions(dds)

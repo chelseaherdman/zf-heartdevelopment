@@ -1,23 +1,18 @@
----
-title: "Differential expression analysis (DESeq2) - replicate plus time point"
-author: "Chelsea Herdman"
-date: "February 5th, 2020"
-output: github_document
----
+Differential expression analysis (DESeq2) - replicate plus time point
+================
+Chelsea Herdman
+February 10th, 2020
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-We performed differential expression analysis using DESeq2 on the 
-imported bias corrected transcript abundances produced by kallisto and 
-tximport following the DESeq2 vignette found [here](http://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html).
+We performed differential expression analysis using DESeq2 on the
+imported bias corrected transcript abundances produced by kallisto and
+tximport following the DESeq2 vignette found
+[here](http://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html).
 
 ### Set up the counts matrix for DESeq
 
 Load required libraries.
 
-```{r libraries, message=FALSE, error=FALSE, warning=FALSE}
+``` r
 library(data.table)
 library(DESeq2)
 library(here)
@@ -29,7 +24,7 @@ library(pheatmap)
 
 Load sample info table and make column data dataframe.
 
-```{r sample_info}
+``` r
 sample_info = fread(here("DESeq2", "ribozero_sample_info.txt"))
 cData = data.frame(time_point=factor(sample_info$time_point,
                                      levels=c("24hpf", "36hpf", "48hpf",
@@ -41,30 +36,78 @@ rownames(cData) = sample_info$gnomex_id
 
 Load counts table.
 
-If we used the original counts plus offset method, we would run the following.
-> dds = DESeqDataSetFromTximport(txi.kallisto.offset, cData, ~ time_point)
- 
-```{r prep_countsmatrix}
+If we used the original counts plus offset method, we would run the
+following. \> dds = DESeqDataSetFromTximport(txi.kallisto.offset, cData,
+~
+time\_point)
+
+``` r
 counts_tab = fread(here("Tximport", "20200204_ribozero_counts_fromtximport_biascorrected.txt.gz"))
 counts = as.matrix(counts_tab[, !"ensembl_gene_id"])
 rownames(counts) = counts_tab$ensembl_gene_id
 storage.mode(counts) = "integer" # DESeq requires us to change numeric values to integer.
 ```
 
-***
+-----
+
 ### Diagnostics
 
-**_Read sum distributions_**
-```{r read_sum, fig.width=6, fig.height=4, error=TRUE}
-hist(log10(rowSums(counts) + 1), breaks=100, col="grey80")
+***Read sum distributions***
+
+``` r
 summary(rowSums(counts))
+```
+
+    ##     Min.  1st Qu.   Median     Mean  3rd Qu.     Max. 
+    ##        0      483     4451    38257    24438 57254448
+
+``` r
 dim(counts)
+```
+
+    ## [1] 37227    22
+
+``` r
 sum(rowSums(counts) == 0)
+```
+
+    ## [1] 718
+
+``` r
 sum(rowSums(counts) < 10)
 ```
 
-**_PCA plots of raw counts_**
-```{r pca_plot_rawcounts, fig.height=10, fig.width=10}
+    ## [1] 1477
+
+``` r
+hist(log10(rowSums(counts) + 1), breaks=100, col="grey80")
+abline(v=log10(1e6), col="red")
+abline(v=log10(10), col="red")
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/read_sum-1.png)<!-- -->
+
+``` r
+# Remove genes with fewer than 10 and more than 1e6 reads total (over 22 samples)
+# (removes 1665 genes)
+counts = counts[rowSums(counts) > 10, ]
+counts = counts[rowSums(counts) < 1e6, ]
+
+summary(rowSums(counts))
+```
+
+    ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    ##      11     644    5144   27883   25762  982962
+
+``` r
+dim(counts)
+```
+
+    ## [1] 35562    22
+
+***PCA plots of raw filtered counts***
+
+``` r
 pcres = prcomp(counts)
 pctab = data.table(pcres$rotation[, 1:8])
 pctab[, sample_id:=rownames(pcres$rotation)]
@@ -86,65 +129,149 @@ time_colors = c("24hpf"="#fb8072",
 #pdf(here("DESeq2", "model_diagnostics", "replicate_plus_timepoint", "figs", "20200205_pca_plots_rawcounts.pdf"), #width=10, height=10)
 pairs(pcres$rotation[, 1:8], cex=3, pch=20, col=rep_colors[pctab$replicate_id])
 legend(x="bottomright", legend=names(rep_colors), fill=rep_colors)
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_rawcounts-1.png)<!-- -->
+
+``` r
 pairs(pcres$rotation[, 1:8], cex=3, pch=20, col=time_colors[pctab$time_point])
 legend(x="bottomright", legend=names(time_colors), fill=time_colors)
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_rawcounts-2.png)<!-- -->
+
+``` r
 #dev.off()
 
 screeplot(pcres)
 ```
 
-Conclusions: 24hpf and 36 hpf samples cluster well by time_point (e.g. PC2 vs PC3). 
-Samples generally do not cluster by replicate_id. PC1 accounts for all of variance, 
-and does not correlate with time_point or replicate.
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_rawcounts-3.png)<!-- -->
 
-***
+Conclusions: Samples cluster well by time\_point (e.g. PC1 vs. PC2 and
+PC2 vs PC3). Samples generally do not cluster by replicate\_id.
+
+-----
 
 ### Run Differential Expression Analysis
 
-**_Create the DESeqDataSet_**
+***Create the DESeqDataSet***
 
-Perform the likelihood ratio test and create a datatable of the differential expression results.
-```{r dds_diag, fig.height=4, fig.width=6}
+Perform the likelihood ratio test and create a datatable of the
+differential expression results.
+
+``` r
 dds = DESeqDataSetFromMatrix(countData=counts,
                              colData=cData,
                              design=~ replicate_id + 
                                       time_point)
-# May prefilter.
-#keep <- rowSums(counts(dds)) >= 10
-#dds <- dds[keep,]
 
 dds = estimateSizeFactors(dds)
 dds = estimateDispersions(dds)
+```
+
+    ## gene-wise dispersion estimates
+
+    ## mean-dispersion relationship
+
+    ## final dispersion estimates
+
+``` r
 dds = nbinomLRT(dds, reduced=~ replicate_id)
+```
+
+    ## 1 rows did not converge in beta, labelled in mcols(object)$fullBetaConv. Use larger maxit argument with nbinomLRT
+
+``` r
 res = results(dds, cooksCutoff=TRUE)
 
 plotMA(res, ylim = c(-3, 3))
-plotDispEsts(dds)
+```
 
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/dds_diag-1.png)<!-- -->
+
+``` r
+plotDispEsts(dds)
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/dds_diag-2.png)<!-- -->
+
+``` r
 res = as.data.frame(res)
 res = data.frame(ensembl_gene_id=rownames(res), res)
 res = data.table(res)
 setorder(res, pvalue, na.last=TRUE)
 length(unique(res$ensembl_gene_id))
-sum(res$padj < 0.05, na.rm=TRUE )
-sum(is.na(res$pvalue))
-hist(res$pvalue, breaks=20, col="grey" )
+```
 
+    ## [1] 35562
+
+``` r
+sum(res$padj < 0.05, na.rm=TRUE )
+```
+
+    ## [1] 10557
+
+``` r
+sum(is.na(res$pvalue))
+```
+
+    ## [1] 0
+
+``` r
+hist(res$pvalue, breaks=20, col="grey" )
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/dds_diag-3.png)<!-- -->
+
+``` r
 res05 = results(dds, alpha=0.05)
 summary(res05)
+```
 
+    ## 
+    ## out of 35562 with nonzero total read count
+    ## adjusted p-value < 0.05
+    ## LFC > 0 (up)       : 5875, 17%
+    ## LFC < 0 (down)     : 4729, 13%
+    ## outliers [1]       : 0, 0%
+    ## low counts [2]     : 3448, 9.7%
+    ## (mean count < 5)
+    ## [1] see 'cooksCutoff' argument of ?results
+    ## [2] see 'independentFiltering' argument of ?results
+
+``` r
 resultsNames(dds)
+```
 
+    ## [1] "Intercept"                   "replicate_id_rep_2_vs_rep_1"
+    ## [3] "replicate_id_rep_3_vs_rep_1" "replicate_id_rep_4_vs_rep_1"
+    ## [5] "replicate_id_rep_5_vs_rep_1" "time_point_36hpf_vs_24hpf"  
+    ## [7] "time_point_48hpf_vs_24hpf"   "time_point_60hpf_vs_24hpf"  
+    ## [9] "time_point_72hpf_vs_24hpf"
+
+``` r
 resLFC = lfcShrink(dds, coef="time_point_72hpf_vs_24hpf", type="apeglm")
+```
 
+    ## using 'apeglm' for LFC shrinkage. If used in published research, please cite:
+    ##     Zhu, A., Ibrahim, J.G., Love, M.I. (2018) Heavy-tailed prior distributions for
+    ##     sequence count data: removing the noise and preserving large differences.
+    ##     Bioinformatics. https://doi.org/10.1093/bioinformatics/bty895
+
+``` r
 plotMA(resLFC, ylim=c(-2,2))
 ```
 
-**_Compute Normalized Counts_**
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/dds_diag-4.png)<!-- -->
 
-Convert matrix of normalized counts into data.table, with a gene_id column in 
-order to incorporate into differential expression results table.
-```{r normcounts}
+***Compute Normalized Counts***
+
+Convert matrix of normalized counts into data.table, with a gene\_id
+column in order to incorporate into differential expression results
+table.
+
+``` r
 norm_counts = counts(dds, normalized=TRUE)
 norm_tab = data.table(norm_counts)
 norm_tab$ensembl_gene_id = rownames(norm_counts)
@@ -152,7 +279,7 @@ norm_tab$ensembl_gene_id = rownames(norm_counts)
 
 Convert from wide-form to long-form and compute mean normalized counts.
 
-```{r normcounts melt}
+``` r
 #norm = melt(norm_tab, id.vars="ensembl_gene_id",
 #            value.name="norm_counts",
 #            variable.name="sample_id",
@@ -167,9 +294,11 @@ Convert from wide-form to long-form and compute mean normalized counts.
 #                            time_point)]
 ```
 
-Convert summary table of mean normalized counts to wide-form and merge into
-differential expression results.
-```{r}
+Convert summary table of mean normalized counts to wide-form and merge
+into differential expression
+results.
+
+``` r
 #sum_norm = dcast(summary_norm, ensembl_gene_id ~ time_point, value.var="mean_normcounts")
 #setcolorder(sum_norm, c("ensembl_gene_id", "24hpf", "36hpf", "48hpf", "72hpf"))
 #res_sum = merge(res, sum_norm, by = "ensembl_gene_id")
@@ -178,7 +307,7 @@ differential expression results.
 
 Run principal components analysis on the normalized counts.
 
-```{r pca_plot_normcounts, fig.height=10, fig.width=10}
+``` r
 pcres_norm = prcomp(norm_counts)
 pctab_norm = data.table(pcres_norm$rotation[, 1:8])
 pctab_norm[, sample_id:=rownames(pcres_norm$rotation)]
@@ -188,18 +317,32 @@ pctab_norm[, replicate_id:=sample_info$replicate_id]
 #pdf(here("DESeq2", "model_diagnostics", "replicate_plus_timepoint", "figs", "20200205_pca_plots_normcounts.pdf"), #width=10, height=10)
 pairs(pcres_norm$rotation[, 1:8], cex=3, pch=20, col=rep_colors[pctab_norm$replicate_id])
 legend(x="bottomright", legend=names(rep_colors), fill=rep_colors)
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_normcounts-1.png)<!-- -->
+
+``` r
 pairs(pcres_norm$rotation[, 1:8], cex=3, pch=20, col=time_colors[pctab_norm$time_point])
 legend(x="bottomright", legend=names(time_colors), fill=time_colors)
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_normcounts-2.png)<!-- -->
+
+``` r
 #dev.off()
 
 screeplot(pcres_norm)
 ```
 
-**_rlog transformation_**
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_normcounts-3.png)<!-- -->
 
-Perform rlog transformation, taking into account different variability of samples. 
-Extract the computed rlog values into a matrix, then convert to long form.
-```{r rlog}
+***rlog transformation***
+
+Perform rlog transformation, taking into account different variability
+of samples. Extract the computed rlog values into a matrix, then convert
+to long form.
+
+``` r
 rld <- rlog(dds, blind=FALSE)
 rmat = assay(rld)
 rtab = data.table(rmat)
@@ -210,7 +353,8 @@ rlog_long = melt(rtab, id.vars="ensembl_gene_id",
 ```
 
 Perform principal component analysis on the rlog values.
-```{r pca_plot_rlogcounts, fig.height=10, fig.width=10}
+
+``` r
 pcres_rlog = prcomp(rmat)
 pctab_rlog = data.table(pcres_rlog$rotation[, 1:8])
 pctab_rlog[, sample_id:=rownames(pcres_rlog$rotation)]
@@ -220,19 +364,42 @@ pctab_rlog[, replicate_id:=sample_info$replicate_id]
 #pdf(here("DESeq2", "model_diagnostics", "replicate_plus_timepoint", "figs", "20200205_pca_plots_rlogcounts.pdf"), width=10, height=10)
 pairs(pcres_rlog$rotation[, 1:8], cex=3, pch=20, col=rep_colors[pctab_rlog$replicate_id])
 legend(x="bottomright", legend=names(rep_colors), fill=rep_colors)
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_rlogcounts-1.png)<!-- -->
+
+``` r
 pairs(pcres_rlog$rotation[, 1:8], cex=3, pch=20, col=time_colors[pctab_rlog$time_point])
 legend(x="bottomright", legend=names(time_colors), fill=time_colors)
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_rlogcounts-2.png)<!-- -->
+
+``` r
 #dev.off()
 
 screeplot(pcres_rlog)
+```
 
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_rlogcounts-3.png)<!-- -->
+
+``` r
 plotPCA(rld, intgroup=c("time_point"))
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_rlogcounts-4.png)<!-- -->
+
+``` r
 plotPCA(rld, intgroup=c("replicate_id"))
+```
+
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/pca_plot_rlogcounts-5.png)<!-- -->
+
+``` r
 #plotPCA(rld, intgroup=c("qc_conc"))
 ```
 
-
-```{r, sampletosampleheatmap}
+``` r
 vsd <- vst(dds, blind=FALSE)
 sampleDists <- dist(t(assay(vsd)))
 sampleDistMatrix <- as.matrix(sampleDists)
@@ -245,13 +412,16 @@ pheatmap(sampleDistMatrix,
          col=colors)
 ```
 
-***
+![](20200210_rep_plus_timepoint_prefilter_files/figure-gfm/sampletosampleheatmap-1.png)<!-- -->
+
+-----
 
 ### Create complete annotated results table
 
-Fetch annotations from biomaRt using permanent link for GRCz11 - release 99.
-Merge in gene annotations to DESeq results table
-```{r}
+Fetch annotations from biomaRt using permanent link for GRCz11 - release
+99. Merge in gene annotations to DESeq results table
+
+``` r
 #mart = useMart(biomart="ENSEMBL_MART_ENSEMBL",
 #               dataset="drerio_gene_ensembl",
 #               host="jan2020.archive.ensembl.org")
@@ -264,4 +434,3 @@ Merge in gene annotations to DESeq results table
 #
 #data_tab = merge(res_sum, annot_g, by="ensembl_gene_id")
 ```
-
