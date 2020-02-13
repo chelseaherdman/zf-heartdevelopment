@@ -27,6 +27,7 @@ library(biomaRt)
 library(apeglm)
 library(RColorBrewer)
 library(pheatmap)
+source(here("misc", "svd_pairs_plots.R"))
 ```
 
 Load sample info table and make column data dataframe.
@@ -91,9 +92,24 @@ legend(x="bottomright", legend=names(rep_colors), fill=rep_colors)
 pairs(pcres$rotation[, 1:8], cex=3, pch=20, col=time_colors[pctab$time_point])
 legend(x="bottomright", legend=names(time_colors), fill=time_colors)
 #dev.off()
-
-screeplot(pcres)
 ```
+
+
+
+```{r, fig.height=2.5, fig.width=5}
+# Screen plot.
+# Proportion of variance explained for each PC.
+# For prcomp, compute this with (pcres$sdev)^2 / sum((pcres$sdev)^2)
+# https://stats.stackexchange.com/questions/254592/calculating-pca-variance-explained
+# Compare to summary(pcres)
+
+s1 = screePlot(pcres$sdev)
+
+s1
+
+```
+
+
 
 Conclusions: 24hpf and 36 hpf samples cluster well by time_point (e.g. PC2 vs PC3). 
 Samples generally do not cluster by replicate_id. PC1 accounts for all of variance, 
@@ -123,6 +139,7 @@ res = results(dds, cooksCutoff=TRUE)
 plotMA(res, ylim = c(-3, 3))
 plotDispEsts(dds)
 
+# Switch this over to using as.data.table(res, keep.rownames="ensembl_gene_id")
 res = as.data.frame(res)
 res = data.frame(ensembl_gene_id=rownames(res), res)
 res = data.table(res)
@@ -231,10 +248,66 @@ legend(x="bottomright", legend=names(time_colors), fill=time_colors)
 
 screeplot(pcres_rlog)
 
-plotPCA(rld, intgroup=c("time_point"))
+plotPCA(rld, intgroup=c("time_point"), ntop=nrow(rmat))
 plotPCA(rld, intgroup=c("replicate_id"))
-#plotPCA(rld, intgroup=c("qc_conc"))
+
 ```
+
+
+We need to check and resolve the disagreement between `prcomp()` and `plotPCA()` results.
+Specifically, samples X8 and X10 appear to be outliers in `prcomp` PC1, but not in `plotPCA`.
+```{r}
+# From DESeq2 source code: R/plots.R
+# pca <- prcomp(t(assay(object)[select,]))
+
+# Discussion of svd() vs. prcomp()
+# https://genomicsclass.github.io/book/pages/pca_svd.html
+# Need to
+
+x1 = assay(rld)
+x2 = prcomp(t(x1))
+x3 = prcomp(x1)
+
+# Make a gene-centered rlog matrix.
+x1_gc = x1
+
+x1_gc = sweep(x1_gc, 1, rowMeans(x1_gc), "-")
+
+x3_gc = prcomp(x1_gc, center=FALSE)
+
+
+# Gene-centered rlog pca.
+pctab_rlog2 = data.table(x3_gc$rotation[, 1:8])
+pctab_rlog2[, sample_id:=rownames(x3_gc$rotation)]
+pctab_rlog2[, time_point:=sample_info$time_point]
+pctab_rlog2[, replicate_id:=sample_info$replicate_id]
+
+#pdf(here("DESeq2", "model_diagnostics", "replicate_plus_timepoint", "figs", "20200205_pca_plots_rlogcounts.pdf"), width=10, height=10)
+pairs(x3_gc$rotation[, 1:8], cex=3, pch=20, col=rep_colors[pctab_rlog2$replicate_id])
+legend(x="bottomright", legend=names(rep_colors), fill=rep_colors)
+pairs(x3_gc$rotation[, 1:8], cex=3, pch=20, col=time_colors[pctab_rlog2$time_point])
+legend(x="bottomright", legend=names(time_colors), fill=time_colors)
+#dev.off()
+
+
+plotPCA(rld, intgroup=c("time_point"), ntop=nrow(rmat))
+plotPCA(rld, intgroup=c("replicate_id"))
+
+
+
+
+```
+
+
+
+
+
+
+```{r}
+
+```
+
+
 
 ```{r, sampletosampleheatmap}
 vsd <- vst(dds, blind=FALSE)
@@ -379,13 +452,33 @@ table(rload$gene_biotype)
 ```
 
 
-
+Check loadings of PC1 in normalized count data.
 ```{r}
 nload = data.table(pcres_norm$x)
 nload[, ensembl_gene_id:=rownames(pcres_rlog$x)]
 nload = merge(nload, annot_g, by="ensembl_gene_id")
 setorder()
 ```
+
+
+
+Check for associations between normalized counts principal components and technical variables.
+```{r}
+
+etab = fread(here("DESeq2", "extended_sample_info_14893R.txt"))
+
+
+
+
+
+
+```
+
+
+
+
+
+
 
 
 

@@ -19,5 +19,5 @@ gnomex_id	replicate_id	rep_time	time_point	qc_conc	qc_rin
 14893X18	rep_4	4_48hpf	48hpf	12	10.0
 14893X19	rep_4	4_60hpf	60hpf	5.9	8.2
 14893X20	rep_4	4_72hpf	72hpf	11	8.8
-14893X21	rep_5	5_60hpf	60hpf	NA	NA
-14893X22	rep_5	5_72hpf	72hpf	NA	NA
+14893X21	rep_5	5_60hpf	60hpf	24	5.4
+14893X22	rep_5	5_72hpf	72hpf	14	7.2
