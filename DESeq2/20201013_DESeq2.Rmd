@@ -3,6 +3,8 @@ title: "Differential expression analysis (DESeq2) - replicate plus time point"
 author: "Chelsea Herdman"
 date: "February 13th, 2020"
 output: github_document
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -179,7 +181,7 @@ plotPCA(rld, intgroup=c("time_point"), ntop=10000)
 
 
 ```{r, sampletosampleheatmap}
-vsd <- vst(dds, blind=FALSE)
+vsd <- vst(dds, blind=FALSE, nsub=5000)
 sampleDists <- dist(t(assay(vsd)))
 sampleDistMatrix <- as.matrix(sampleDists)
 rownames(sampleDistMatrix) <- paste(vsd$condition, vsd$type, sep="-")
@@ -189,6 +191,20 @@ pheatmap(sampleDistMatrix,
          clustering_distance_rows=sampleDists,
          clustering_distance_cols=sampleDists,
          col=colors)
+```
+
+Create long-form data.table contain vsd values, for input to DPGP clustering.
+```{r}
+vsd_mat = assay(vsd)
+vtab = as.data.table(vsd_mat, keep.rownames="ensembl_gene_id")
+vtab_long = melt(vtab, id.vars="ensembl_gene_id",
+                 variable.name="gnomex_id", value.name="vsd_value")
+
+vtab_long = merge(vtab_long,
+                  sample_info[, list(gnomex_id, rep_time,
+                                     replicate_id, time_point)],
+                  by="gnomex_id")
+
 ```
 
 ***
@@ -209,16 +225,16 @@ setorder(res_sum, padj, na.last = TRUE)
 
 genes_to_keep_fdr = res_sum[padj < 0.05, ensembl_gene_id]
 
-fdr_tab = rlog_long[ensembl_gene_id %in% genes_to_keep_fdr]
+fdr_tab = vtab_long[ensembl_gene_id %in% genes_to_keep_fdr]
 
 length(unique(fdr_tab$ensembl_gene_id))
 
 ```
 
 Create input files for running DPGP clustering.
-Four files containing rlog values for each replicate.
+Four files containing vsd values for each replicate.
 ```{r}
-# Loop to build and save to file table of rlog values for each replicate.
+# Loop to build and save to file table of vsd values for each replicate.
 # By looping over c("rep_1", "rep_2", "rep_3", "rep_4"),
 # we leave out/ignore the incomplete replicate 5 values.
 
@@ -227,10 +243,10 @@ dir_create(here("DESeq2", "dpgp_input_files"))
 for (rep_i in c("rep_1", "rep_2", "rep_3", "rep_4")) {
     tmp_tab = fdr_tab[replicate_id == rep_i]
     tmp_wide = dcast(data=tmp_tab, formula=ensembl_gene_id ~ time_point,
-                     value.var="rlog_value")
+                     value.var="vsd_value")
     setnames(tmp_wide, c("gene", "24", "36", "48", "60", "72"))
-    tmp_filename = paste("DPGPCluster_rlog_", rep_i, "_fdr5pct_",
-                         length(genes_to_keep_fdr),"genes_20200214.txt", sep="")
+    tmp_filename = paste("DPGPCluster_vsd_", rep_i, "_fdr5pct_",
+                         length(genes_to_keep_fdr),"genes_20200218.txt", sep="")
     fwrite(tmp_wide, file=here("DESeq2", "dpgp_input_files", tmp_filename), sep="\t")
 }
 
