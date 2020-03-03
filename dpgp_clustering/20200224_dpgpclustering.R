@@ -173,7 +173,7 @@ subtab[, log2_fold_enrichment:=log2(fold_enrichment)]
 subtab[, abs_log2_fold_enrichment:=abs(log2_fold_enrichment)]
 subtab[, fdr_group:=ifelse(padj < 0.01, "signif", "nonsignif")]
 
-# Use hclust to set y-axis order.
+# Use hclust to set go_term plotting order.
 fe_tab = dcast(data=subtab, 
                formula=go_term_id ~ cluster_id, 
                value.var="log2_fold_enrichment")
@@ -186,6 +186,7 @@ pdf(here("dpgp_clustering", "hlust_test_euc_average.pdf"), width=32, height=16)
 plot(cl)
 dev.off()
 
+# go_tab is used for sorting and retaining a specific go_term plotting order
 go_tab = data.table(go_term_id=cl$labels[cl$order])
 go_tab$go_term_order = seq(nrow(go_tab))
 
@@ -195,10 +196,11 @@ go_tab = merge(x=go_tab,
                all.y=FALSE)
 setorder(go_tab, go_term_order)
 
+# Set levels of go_term factor to control  plotting order.
 subtab[, go_term:=factor(go_term, levels=go_tab$go_term)]
+subtab[, x_order:=as.integer(go_term)]
 
-# Set four-level factor for enrichment direction X fdr group.
-
+# Set four-level factor for enrichment direction -by- fdr group.
 subtab$fdr_enrichment_group = NA_character_
 
 subtab[enrichment_direction == "+" & fdr_group == "signif", 
@@ -226,7 +228,7 @@ fdr_enrichment_group_colors_2 = c(
 s1 = ggplot(subtab, aes(y=abs_log2_fold_enrichment, x=go_term, 
                         fill=fdr_enrichment_group)) +
         theme_bw() +
-        geom_bar(colour="grey30", stat="identity", 
+        geom_bar(colour="grey30", stat="identity",
                  size=0.2, show.legend=FALSE) +
         scale_fill_manual(values=fdr_enrichment_group_colors_2) +
         coord_flip() +
@@ -236,13 +238,84 @@ ggsave(here("dpgp_clustering", "20200226_long_test_GOterm_plots.pdf"), plot=s1,
        height=72, width=14, limitsize=FALSE)
 
 
-#-------------------------------------------------------------------------------
-# Dig into how to interpret and plot the fold_enrichment "< 0.01" values.
-sx_tab = tab[, list(reflist_count=reflist_count[1], 
-                    reflist_check=all(reflist_count == reflist_count[1])), 
-             by=go_term_id]
+# Try a horizontal version of this plot. Hide GO term labels,
+# and expect to add clusters for groups of go terms.
 
-tail(sort(table(sx_tab$reflist_count)))
+s2 = ggplot(subtab, aes(y=abs_log2_fold_enrichment, x=go_term, 
+                        fill=fdr_enrichment_group)) +
+        theme_bw() +
+        geom_bar(colour=NA, stat="identity", width=1.05,
+                 size=0.1, show.legend=FALSE) +
+        scale_fill_manual(values=fdr_enrichment_group_colors_2) +
+        theme(axis.title=element_text(size=8)) +
+        theme(axis.text.x=element_blank()) +
+        theme(axis.text.y=element_text(size=6)) +
+        theme(axis.ticks.x=element_blank()) +
+        theme(axis.ticks.y=element_line(size=0.4)) +
+        theme(strip.text=element_text(size=6)) +
+        theme(panel.grid.major.y=element_line(size=0.2)) +
+        theme(panel.grid.major.x=element_blank()) +
+        theme(panel.grid.minor=element_blank()) +
+        xlab("GO Term Clusters") +
+        ylab("Fold-Enrichment (log2 scale)") +
+        facet_grid(cluster_id ~ .)
+
+ggsave(here("dpgp_clustering", "20200228_wide_test_GOterm_plots.pdf"), plot=s2, 
+       height=3.5, width=5.5, limitsize=FALSE)
+
+#-------------------------------------------------------------------------------
+# geom_ribbon plot version.
+
+# Copy of subtab
+subtab2 = copy(subtab)
+
+find_blocks = function(x) {
+    rle_lengths = rle(x)$lengths
+    rep(paste("block_", seq_along(rle_lengths), sep=""), times=rle_lengths)
+}
+
+# !! The data.table MUST be sorted first by cluster_id, then by x_order.
+setorder(subtab2, cluster_id, x_order)
+subtab2[, block:=find_blocks(fdr_enrichment_group), by=cluster_id]
+
+
+# Create x-values for the 'ribbon'. Duplicate each row (each go_term),
+# changing x-values to be +/- 0.5
+subtab2 = subtab2[, list(x_pos=x_order + c(-0.5, 0.5)), 
+            by=list(go_term, abs_log2_fold_enrichment, fdr_enrichment_group,
+                    block, x_order, cluster_id)]
+
+subtab2[, go_term:=factor(go_term, levels=go_tab$go_term)]
+
+
+s3 = ggplot(data=subtab2, 
+            aes(y=abs_log2_fold_enrichment, x=go_term, 
+                fill=fdr_enrichment_group, group=fdr_enrichment_group)) +
+        theme_bw() +
+        geom_point(color=NA, show.legend=FALSE) + # Needed to trick ggplot into using discrete x-axis.
+        geom_ribbon(data=subtab2, 
+                    aes(x=x_pos, ymin=0, ymax=abs_log2_fold_enrichment, 
+                        fill=fdr_enrichment_group, group=block), 
+                    colour="grey10", size=0.1, show.legend=FALSE) +
+        scale_fill_manual(values=fdr_enrichment_group_colors_2) +
+        theme(axis.title=element_text(size=8)) +
+        theme(axis.text.x=element_blank()) +
+        theme(axis.text.y=element_text(size=6)) +
+        theme(axis.ticks.x=element_blank()) +
+        theme(axis.ticks.y=element_line(size=0.4)) +
+        theme(strip.text=element_text(size=6)) +
+        theme(panel.grid.major.y=element_line(size=0.2)) +
+        theme(panel.grid.major.x=element_blank()) +
+        theme(panel.grid.minor=element_blank()) +
+        xlab("GO Term Clusters") +
+        ylab("Fold-Enrichment (log2 scale)") +
+        facet_grid(cluster_id ~ .)
+
+ggsave(here("dpgp_clustering", "20200302_wide_ribbon_test_GOterm_plots.pdf"), plot=s3, 
+       height=3.5, width=5.5, limitsize=FALSE)
+
+
+#-------------------------------------------------------------------------------
 
 
 
