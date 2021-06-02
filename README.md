@@ -1,4 +1,7 @@
 # zf-heartdevelopment
+<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+<!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 This repository assembles data and code from Herdman et al. 2020 zebrafish heart development time course.
 
@@ -38,3 +41,23 @@ Please contact Chelsea Herdman [cherdman@genetics.utah.edu] with any questions o
 
 ***
 
+
+## Contributors ✨
+
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tr>
+    <td align="center"><a href="https://github.com/bdemarest"><img src="https://avatars.githubusercontent.com/u/662754?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Bradley Demarest</b></sub></a><br /><a href="#infra-bdemarest" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/chelseaherdman/zf-heartdevelopment/commits?author=bdemarest" title="Tests">⚠️</a> <a href="https://github.com/chelseaherdman/zf-heartdevelopment/commits?author=bdemarest" title="Code">💻</a></td>
+  </tr>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
